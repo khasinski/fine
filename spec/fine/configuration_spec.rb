@@ -9,11 +9,11 @@ RSpec.describe Fine::Configuration do
     end
 
     it "sets default batch_size" do
-      expect(config.batch_size).to eq(32)
+      expect(config.batch_size).to eq(16)
     end
 
     it "sets default learning_rate" do
-      expect(config.learning_rate).to eq(2e-4)
+      expect(config.learning_rate).to eq(2e-5)
     end
 
     it "sets default optimizer" do

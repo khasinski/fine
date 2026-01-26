@@ -62,8 +62,8 @@ module Fine
       def initialize(config)
         super(config)
 
-        # Use appropriate decoder based on model type
-        @decoder = if config.model_type&.include?("gemma3")
+        # Use appropriate decoder based on model type or architectures
+        @decoder = if gemma3_architecture?(config)
           Gemma3Decoder.new(config)
         else
           LlamaDecoder.new(config)
@@ -134,7 +134,10 @@ module Fine
             if do_sample
               # Top-k filtering
               if top_k > 0
-                indices_to_remove = next_token_logits < Torch.topk(next_token_logits, top_k).values[0.., -1, nil]
+                # Torch.topk returns [values, indices] array in torch-rb
+                topk_values, _topk_indices = Torch.topk(next_token_logits, top_k)
+                threshold = topk_values[0.., -1, nil]
+                indices_to_remove = Torch.lt(next_token_logits, threshold)
                 next_token_logits = next_token_logits.masked_fill(indices_to_remove, -Float::INFINITY)
               end
 
@@ -144,7 +147,7 @@ module Fine
                 cumulative_probs = Torch.cumsum(Torch::NN::Functional.softmax(sorted_logits, dim: -1), dim: -1)
 
                 # Remove tokens with cumulative probability above threshold
-                sorted_indices_to_remove = cumulative_probs > top_p
+                sorted_indices_to_remove = Torch.gt(cumulative_probs, top_p)
                 sorted_indices_to_remove[0.., 1..] = sorted_indices_to_remove[0.., 0...-1].clone
                 sorted_indices_to_remove[0.., 0] = false
 
@@ -182,7 +185,12 @@ module Fine
         weights_path = File.join(path, "model.safetensors")
         Safetensors::Torch.save_file(state_dict, weights_path)
 
-        save_config = @config.to_h.merge("model_type" => "causal_lm")
+        # Preserve architecture info for proper decoder selection on load
+        save_config = @config.to_h.dup
+        # Don't overwrite model_type if it contains architecture info
+        save_config["model_type"] ||= "causal_lm"
+        # Mark which decoder type this model uses
+        save_config["_decoder_type"] = @decoder.class.name.split("::").last
 
         config_path = File.join(path, "config.json")
         File.write(config_path, JSON.pretty_generate(save_config))
@@ -190,10 +198,26 @@ module Fine
 
       private
 
+      # Detect if this is a Gemma 3 model based on config
+      def gemma3_architecture?(config)
+        # Check model_type first
+        return true if config.model_type&.include?("gemma3")
+
+        # Check architectures array (HuggingFace format)
+        architectures = config.config["architectures"] || []
+        return true if architectures.any? { |a| a.downcase.include?("gemma3") }
+
+        # Check saved decoder type
+        return true if config.config["_decoder_type"] == "Gemma3Decoder"
+
+        false
+      end
+
       def self.load_pretrained_weights(model, weights_path)
         # Load and copy weights one at a time to minimize memory usage
         model_state = model.state_dict
         model_keys = model_state.keys
+        loaded_lm_head = false
 
         Torch.no_grad do
           Safetensors::Torch.load_file(weights_path).each do |name, tensor|
@@ -203,7 +227,15 @@ module Fine
               # Convert dtype if needed
               tensor = tensor.to(target.dtype) if tensor.dtype != target.dtype
               target.copy!(tensor)
+              loaded_lm_head = true if mapped_name == "lm_head.weight"
             end
+          end
+
+          # If lm_head wasn't in the weights file, tie it to embeddings
+          unless loaded_lm_head
+            embed_weight = model_state["decoder.embed_tokens.weight"]
+            lm_head_weight = model_state["lm_head.weight"]
+            lm_head_weight.copy!(embed_weight)
           end
         end
 
@@ -219,6 +251,7 @@ module Fine
 
         model_state = model.state_dict
         model_keys = model_state.keys
+        loaded_lm_head = false
 
         # Load each shard and copy weights immediately to minimize memory
         Torch.no_grad do
@@ -229,10 +262,18 @@ module Fine
                 target = model_state[mapped_name]
                 tensor = tensor.to(target.dtype) if tensor.dtype != target.dtype
                 target.copy!(tensor)
+                loaded_lm_head = true if mapped_name == "lm_head.weight"
               end
             end
             # GC after each shard to free memory
             GC.start
+          end
+
+          # If lm_head wasn't in the weights file, tie it to embeddings
+          unless loaded_lm_head
+            embed_weight = model_state["decoder.embed_tokens.weight"]
+            lm_head_weight = model_state["lm_head.weight"]
+            lm_head_weight.copy!(embed_weight)
           end
         end
       end

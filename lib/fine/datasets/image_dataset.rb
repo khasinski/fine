@@ -23,9 +23,21 @@ module Fine
       #
       # @param path [String] Path to the root directory
       # @param transforms [Transforms::Compose, nil] Optional transforms to apply
+      # @param validate [Boolean] Whether to validate directory structure
       # @return [ImageDataset]
-      def self.from_directory(path, transforms: nil)
-        raise DatasetError, "Directory not found: #{path}" unless File.directory?(path)
+      #
+      # @example Expected directory structure
+      #   # data/
+      #   #   cats/
+      #   #     cat1.jpg
+      #   #     cat2.jpg
+      #   #   dogs/
+      #   #     dog1.jpg
+      #   #     dog2.jpg
+      #   dataset = ImageDataset.from_directory("data/", transforms: transforms)
+      #
+      def self.from_directory(path, transforms: nil, validate: true)
+        Validators.validate_image_directory!(path) if validate
 
         images = []
         labels = []

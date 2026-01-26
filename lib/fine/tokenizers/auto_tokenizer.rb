@@ -135,6 +135,21 @@ module Fine
         @tokenizer.decode(token_ids, skip_special_tokens: skip_special_tokens)
       end
 
+      # Encode without padding (for generation)
+      # Returns only the actual tokens, no padding
+      #
+      # @param text [String] Text to tokenize
+      # @return [Array<Integer>] Token IDs
+      def encode_for_generation(text)
+        # Temporarily disable padding
+        @tokenizer.no_padding
+        encoding = @tokenizer.encode(text)
+        ids = encoding.ids
+        # Re-enable padding
+        @tokenizer.enable_padding(length: @max_length)
+        ids
+      end
+
       # Get vocabulary size
       def vocab_size
         @tokenizer.vocab_size

@@ -1,0 +1,3 @@
+{"text": "Valid first line", "label": "positive"}
+{"invalid json missing closing brace"
+{"text": "Valid third line", "label": "negative"}

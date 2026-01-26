@@ -52,13 +52,13 @@ module Fine
         position_ids ||= Torch.arange(seq_length, device: input_ids.device)
         position_ids = position_ids.unsqueeze(0).expand(batch_size, -1)
 
-        # Create causal mask
-        causal_mask = create_causal_mask(seq_length, hidden_states.device)
+        # Create causal mask (must match dtype of hidden_states)
+        causal_mask = create_causal_mask(seq_length, hidden_states.device, hidden_states.dtype)
 
         # Combine with attention mask if provided
         if attention_mask
           # Expand attention mask: (batch, seq) -> (batch, 1, seq, seq)
-          expanded_mask = attention_mask.unsqueeze(1).unsqueeze(2)
+          expanded_mask = attention_mask.unsqueeze(1).unsqueeze(2).to(hidden_states.dtype)
           expanded_mask = expanded_mask.expand(-1, -1, seq_length, -1)
           causal_mask = causal_mask + (1.0 - expanded_mask) * -1e9
         end
@@ -80,10 +80,10 @@ module Fine
 
       private
 
-      def create_causal_mask(seq_length, device)
+      def create_causal_mask(seq_length, device, dtype)
         # Lower triangular mask for causal attention
         mask = Torch.triu(
-          Torch.ones(seq_length, seq_length, device: device) * -1e9,
+          Torch.ones(seq_length, seq_length, device: device, dtype: dtype) * -1e9,
           diagonal: 1
         )
         mask.unsqueeze(0).unsqueeze(0)
@@ -235,10 +235,11 @@ module Fine
         seq_len = position_ids.max.item + 1
         build_cache(seq_len) if seq_len > @cos_cached.size(0)
 
-        # Move cached tensors to position_ids device if needed
+        # Move cached tensors to position_ids device and match dtype of input
         device = position_ids.device
-        cos_cached = @cos_cached.to(device)
-        sin_cached = @sin_cached.to(device)
+        dtype = x.dtype
+        cos_cached = @cos_cached.to(device).to(dtype)
+        sin_cached = @sin_cached.to(device).to(dtype)
 
         cos = cos_cached[position_ids].unsqueeze(1)
         sin = sin_cached[position_ids].unsqueeze(1)

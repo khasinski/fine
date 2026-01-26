@@ -19,9 +19,17 @@ module Fine
       # @param tokenizer [AutoTokenizer] Tokenizer to use
       # @param text_column [String] Name of text field
       # @param label_column [String] Name of label field
+      # @param validate [Boolean] Whether to validate the file first
       # @return [TextDataset]
-      def self.from_jsonl(path, tokenizer:, text_column: "text", label_column: "label")
-        raise DatasetError, "File not found: #{path}" unless File.exist?(path)
+      #
+      # @example
+      #   # Expected JSONL format:
+      #   # {"text": "Great product!", "label": "positive"}
+      #   # {"text": "Terrible service", "label": "negative"}
+      #   dataset = TextDataset.from_jsonl("reviews.jsonl", tokenizer: tokenizer)
+      #
+      def self.from_jsonl(path, tokenizer:, text_column: "text", label_column: "label", validate: true)
+        Validators.validate_text_classification!(path) if validate
 
         texts = []
         labels = []
@@ -29,9 +37,11 @@ module Fine
         File.foreach(path) do |line|
           next if line.strip.empty?
 
-          data = JSON.parse(line)
-          texts << data[text_column]
-          labels << data[label_column]
+          data = JSON.parse(line, symbolize_names: true)
+          text_key = data.key?(text_column.to_sym) ? text_column.to_sym : text_column
+          label_key = data.key?(label_column.to_sym) ? label_column.to_sym : label_column
+          texts << data[text_key]
+          labels << data[label_key]
         end
 
         raise DatasetError, "No data found in #{path}" if texts.empty?

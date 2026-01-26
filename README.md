@@ -106,6 +106,31 @@ llm.generate("Explain Ruby blocks")
 
 ---
 
+### Tool Calling with LoRA
+
+Train models to output Ollama-compatible tool calls using parameter-efficient LoRA.
+
+```ruby
+model = Fine::Models::CausalLM.from_pretrained("google/gemma-3-1b-it")
+
+# Apply LoRA - only 0.5% of params trainable
+Fine::LoRA.apply(model, rank: 32, alpha: 64, target_modules: %w[q_proj k_proj v_proj o_proj])
+#   LoRA applied to 104 layers
+#   Total params: 1.31B
+#   Trainable params: 5.96M (0.46%)
+
+# Train on tool calling data
+lora_params = Fine::LoRA.trainable_parameters(model)
+# ... training loop
+
+# Output: valid Ollama JSON
+# {"role":"assistant","tool_calls":[{"type":"function","function":{"index":0,"name":"get_weather","arguments":{"location":"Tokyo"}}}]}
+```
+
+[Full tutorial: LoRA Tool Calling](docs/tutorials/lora-tool-calling.md)
+
+---
+
 ## Installation
 
 ```ruby
@@ -114,7 +139,7 @@ gem 'fine'
 
 Requires Ruby 3.1+, LibTorch, and libvips.
 
-[Full installation guide](docs/installation.md)
+[Full installation guide](docs/installation.md) | [Quickstart](docs/quickstart.md)
 
 **Quick setup (macOS):**
 ```bash
@@ -155,8 +180,9 @@ bundle install
 
 | Model | Parameters | Best For |
 |-------|------------|----------|
+| `google/gemma-3-1b-it` | 1B | Fast experiments, tool calling |
 | `meta-llama/Llama-3.2-1B` | 1B | Fast experiments |
-| `google/gemma-2b` | 2B | Good balance |
+| `google/gemma-3-4b-it` | 4B | Good balance |
 | `Qwen/Qwen2-1.5B` | 1.5B | Multilingual |
 | `mistralai/Mistral-7B-v0.1` | 7B | Best quality |
 
@@ -201,7 +227,8 @@ llm.export_gguf("model.gguf", quantization: :q4_0)
 - [x] Text embedding models
 - [x] LLM fine-tuning (Gemma, Llama, Qwen)
 - [x] ONNX & GGUF export
-- [ ] LoRA/QLoRA fine-tuning
+- [x] LoRA fine-tuning
+- [ ] QLoRA (4-bit quantized LoRA)
 
 ## Contributing
 

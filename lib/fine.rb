@@ -12,6 +12,7 @@ require "fileutils"
 require_relative "fine/version"
 require_relative "fine/error"
 require_relative "fine/configuration"
+require_relative "fine/validators"
 
 # Hub
 require_relative "fine/hub/config_loader"
@@ -67,6 +68,9 @@ require_relative "fine/llm"
 
 # Export
 require_relative "fine/export"
+
+# LoRA
+require_relative "fine/lora"
 
 module Fine
   class << self

@@ -17,9 +17,24 @@ module Fine
       # @param tokenizer [Tokenizers::AutoTokenizer] Tokenizer
       # @param format [Symbol] Data format (:alpaca, :sharegpt, :simple, :auto)
       # @param max_length [Integer] Maximum sequence length
+      # @param validate [Boolean] Whether to validate the file first
       # @return [InstructionDataset]
-      def self.from_jsonl(path, tokenizer:, format: :auto, max_length: 2048)
-        examples = File.readlines(path).map { |line| JSON.parse(line, symbolize_names: true) }
+      #
+      # @example Alpaca format
+      #   # {"instruction": "Summarize this", "input": "Long text...", "output": "Summary"}
+      #   dataset = InstructionDataset.from_jsonl("data.jsonl", tokenizer: tok)
+      #
+      # @example ShareGPT format
+      #   # {"conversations": [{"from": "human", "value": "Hi"}, {"from": "assistant", "value": "Hello!"}]}
+      #   dataset = InstructionDataset.from_jsonl("chat.jsonl", tokenizer: tok, format: :sharegpt)
+      #
+      def self.from_jsonl(path, tokenizer:, format: :auto, max_length: 2048, validate: true)
+        detected_format = Validators.validate_instructions!(path, format: format) if validate
+        format = detected_format if validate && format == :auto
+
+        examples = File.readlines(path).reject { |l| l.strip.empty? }.map do |line|
+          JSON.parse(line, symbolize_names: true)
+        end
         new(examples, tokenizer: tokenizer, format: format, max_length: max_length)
       end
 

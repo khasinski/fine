@@ -60,12 +60,12 @@ module Fine
         position_ids ||= Torch.arange(seq_length, device: input_ids.device)
         position_ids = position_ids.unsqueeze(0).expand(batch_size, -1)
 
-        # Create causal mask
-        causal_mask = create_causal_mask(seq_length, hidden_states.device)
+        # Create causal mask (must match dtype of hidden_states)
+        causal_mask = create_causal_mask(seq_length, hidden_states.device, hidden_states.dtype)
 
         # Combine with attention mask if provided
         if attention_mask
-          expanded_mask = attention_mask.unsqueeze(1).unsqueeze(2)
+          expanded_mask = attention_mask.unsqueeze(1).unsqueeze(2).to(hidden_states.dtype)
           expanded_mask = expanded_mask.expand(-1, -1, seq_length, -1)
           causal_mask = causal_mask + (1.0 - expanded_mask) * -1e9
         end
@@ -87,9 +87,9 @@ module Fine
 
       private
 
-      def create_causal_mask(seq_length, device)
+      def create_causal_mask(seq_length, device, dtype)
         mask = Torch.triu(
-          Torch.ones(seq_length, seq_length, device: device) * -1e9,
+          Torch.ones(seq_length, seq_length, device: device, dtype: dtype) * -1e9,
           diagonal: 1
         )
         mask.unsqueeze(0).unsqueeze(0)
@@ -112,7 +112,7 @@ module Fine
           rms_norm_eps: rms_norm_eps
         )
 
-        @mlp = LlamaMLP.new(
+        @mlp = Gemma3MLP.new(
           hidden_size: hidden_size,
           intermediate_size: intermediate_size
         )
@@ -238,6 +238,25 @@ module Fine
 
         x = x.unsqueeze(2).expand(batch, num_kv_heads, n_rep, seq_len, head_dim)
         x.reshape(batch, num_kv_heads * n_rep, seq_len, head_dim)
+      end
+    end
+
+    # Gemma 3 MLP with GELU activation (not SiLU like Llama)
+    class Gemma3MLP < Torch::NN::Module
+      def initialize(hidden_size:, intermediate_size:)
+        super()
+
+        @gate_proj = Torch::NN::Linear.new(hidden_size, intermediate_size, bias: false)
+        @up_proj = Torch::NN::Linear.new(hidden_size, intermediate_size, bias: false)
+        @down_proj = Torch::NN::Linear.new(intermediate_size, hidden_size, bias: false)
+      end
+
+      def forward(x)
+        # GeGLU: gelu(gate) * up
+        # Using GELU with tanh approximation as per Gemma config
+        gate = Torch::NN::Functional.gelu(@gate_proj.call(x), approximate: "tanh")
+        up = @up_proj.call(x)
+        @down_proj.call(gate * up)
       end
     end
   end

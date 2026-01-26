@@ -204,9 +204,9 @@ module Fine
     def generate(prompt, max_new_tokens: 100, temperature: 0.7, top_p: 0.9, top_k: 50, do_sample: true)
       raise TrainingError, "Model not loaded" unless @model && @tokenizer
 
-      # Tokenize prompt (without tensors for easier manipulation)
-      encoding = @tokenizer.encode(prompt, return_tensors: false)
-      input_ids = Torch.tensor([encoding[:input_ids].first])
+      # Tokenize prompt without padding for autoregressive generation
+      ids = @tokenizer.encode_for_generation(prompt)
+      input_ids = Torch.tensor([ids])
 
       # Move to device
       input_ids = input_ids.to(Fine.device)
@@ -316,19 +316,48 @@ module Fine
   end
 
   # Configuration for LLM fine-tuning
+  #
+  # @example
+  #   llm = Fine::LLM.new("google/gemma-3-1b-it") do |config|
+  #     config.epochs = 3
+  #     config.max_length = 512
+  #     config.learning_rate = 1e-5
+  #   end
+  #
   class LLMConfiguration < Configuration
+    # LLM-specific defaults
+    DEFAULTS = Configuration::DEFAULTS.merge(
+      max_length: 2048,
+      learning_rate: 2e-5,
+      batch_size: 4,
+      epochs: 3,
+      warmup_steps: 100,
+      gradient_accumulation_steps: 4,
+      max_grad_norm: 1.0
+    ).freeze
+
+    # @!attribute max_length
+    #   @return [Integer] Maximum sequence length (default: 2048)
+    # @!attribute gradient_accumulation_steps
+    #   @return [Integer] Accumulate gradients over N steps (default: 4)
+    # @!attribute max_grad_norm
+    #   @return [Float] Gradient clipping norm (default: 1.0)
+    # @!attribute freeze_layers
+    #   @return [Integer] Number of bottom layers to freeze (default: 0)
+    # @!attribute pad_token_id
+    #   @return [Integer, nil] Padding token ID (auto-detected if nil)
     attr_accessor :max_length, :warmup_steps, :gradient_accumulation_steps,
                   :max_grad_norm, :freeze_layers, :pad_token_id
 
     def initialize
       super
-      @max_length = 2048
-      @learning_rate = 2e-5
-      @batch_size = 4
-      @epochs = 1
-      @warmup_steps = 100
-      @gradient_accumulation_steps = 4
-      @max_grad_norm = 1.0
+      @max_length = DEFAULTS[:max_length]
+      @learning_rate = DEFAULTS[:learning_rate]
+      @batch_size = DEFAULTS[:batch_size]
+      @epochs = DEFAULTS[:epochs]
+      @warmup_steps = DEFAULTS[:warmup_steps]
+      @gradient_accumulation_steps = DEFAULTS[:gradient_accumulation_steps]
+      @max_grad_norm = DEFAULTS[:max_grad_norm]
       @freeze_layers = 0
       @pad_token_id = nil
     end
