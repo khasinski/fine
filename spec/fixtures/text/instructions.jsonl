@@ -1,0 +1,4 @@
+{"instruction": "What is Ruby?", "input": "", "output": "Ruby is a dynamic, open source programming language."}
+{"instruction": "Explain a Ruby block", "input": "", "output": "A block is a chunk of code enclosed between do/end or curly braces."}
+{"instruction": "Convert to uppercase", "input": "hello", "output": "HELLO"}
+{"instruction": "What does this code do?", "input": "arr.map(&:to_s)", "output": "Converts each element in the array to a string."}
