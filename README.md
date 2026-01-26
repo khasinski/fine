@@ -90,44 +90,27 @@ similarity = cosine_similarity(embedding1, embedding2)
 
 ---
 
-### LLMs
+### LLMs (with LoRA)
 
-Fine-tune Gemma, Llama, Qwen and other open models for custom tasks.
-
-```ruby
-llm = Fine::LLM.new("meta-llama/Llama-3.2-1B")
-llm.fit(train_file: "instructions.jsonl", epochs: 3)
-
-llm.generate("Explain Ruby blocks")
-# => "A Ruby block is a chunk of code that can be passed to a method..."
-```
-
-[Full tutorial: LLM Fine-tuning](docs/tutorials/llm-fine-tuning.md)
-
----
-
-### Tool Calling with LoRA
-
-Train models to output Ollama-compatible tool calls using parameter-efficient LoRA.
+Fine-tune Gemma, Llama, Qwen and other open models using LoRA—train only 0.5% of parameters.
 
 ```ruby
 model = Fine::Models::CausalLM.from_pretrained("google/gemma-3-1b-it")
 
 # Apply LoRA - only 0.5% of params trainable
-Fine::LoRA.apply(model, rank: 32, alpha: 64, target_modules: %w[q_proj k_proj v_proj o_proj])
-#   LoRA applied to 104 layers
-#   Total params: 1.31B
+Fine::LoRA.apply(model, rank: 32, alpha: 64)
 #   Trainable params: 5.96M (0.46%)
 
-# Train on tool calling data
-lora_params = Fine::LoRA.trainable_parameters(model)
-# ... training loop
+# Train on your data
+trainer = Fine::Training::LLMTrainer.new(model, config, train_dataset: dataset)
+trainer.fit
 
-# Output: valid Ollama JSON
-# {"role":"assistant","tool_calls":[{"type":"function","function":{"index":0,"name":"get_weather","arguments":{"location":"Tokyo"}}}]}
+# Merge weights and save
+Fine::LoRA.merge!(model)
+model.save("my_model")
 ```
 
-[Full tutorial: LoRA Tool Calling](docs/tutorials/lora-tool-calling.md)
+[Full tutorial: LLM Fine-tuning](docs/tutorials/llm-fine-tuning.md) | [LoRA Tool Calling](docs/tutorials/lora-tool-calling.md)
 
 ---
 

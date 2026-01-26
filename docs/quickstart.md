@@ -97,9 +97,9 @@ embedder.save("my_embedder")
 
 ---
 
-## LLM Fine-tuning
+## LLM Fine-tuning (with LoRA)
 
-Fine-tune language models for custom tasks.
+Fine-tune language models using LoRA—only 0.5% of parameters are trainable.
 
 **1. Prepare instruction data** (`instructions.jsonl`):
 ```json
@@ -107,44 +107,27 @@ Fine-tune language models for custom tasks.
 {"instruction": "Translate to French", "input": "Hello world", "output": "Bonjour le monde"}
 ```
 
-**2. Train and use:**
+**2. Train with LoRA:**
 ```ruby
 require 'fine'
 
-llm = Fine::LLM.new("google/gemma-3-1b-it")
-llm.fit(train_file: "instructions.jsonl", epochs: 3)
-
-llm.generate("Summarize: The quick brown fox...")
-# => "A fox jumps over a dog."
-
-llm.save("my_llm")
-```
-
----
-
-## LoRA (Memory-Efficient)
-
-Fine-tune large models with minimal memory using LoRA.
-
-```ruby
-require 'fine'
-
-# Load model
+# Load model and apply LoRA
 model = Fine::Models::CausalLM.from_pretrained("google/gemma-3-1b-it")
-
-# Apply LoRA (only 0.5% of params trainable)
 Fine::LoRA.apply(model, rank: 32, alpha: 64)
 # => "Trainable params: 5.96M (0.46%)"
 
-# Train only LoRA parameters
-lora_params = Fine::LoRA.trainable_parameters(model)
-optimizer = Torch::Optim::AdamW.new(lora_params, lr: 1e-4)
+# Load dataset
+tokenizer = Fine::Tokenizers::AutoTokenizer.from_pretrained("google/gemma-3-1b-it")
+dataset = Fine::Datasets::InstructionDataset.from_jsonl("instructions.jsonl", tokenizer: tokenizer)
 
-# ... training loop ...
+# Train
+config = Fine::LLMConfiguration.new
+trainer = Fine::Training::LLMTrainer.new(model, config, train_dataset: dataset)
+trainer.fit
 
-# Merge and save
+# Merge LoRA weights and save
 Fine::LoRA.merge!(model)
-model.save("my_lora_model")
+model.save("my_llm")
 ```
 
 ---
