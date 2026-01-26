@@ -228,10 +228,12 @@ module Fine
           optimizer.zero_grad
 
           # For pair datasets, we get anchor and positive texts
-          embeddings = @model.encode(
+          # Use forward() directly during training (not encode() which uses no_grad)
+          output = @model.forward(
             batch[:input_ids],
             attention_mask: batch[:attention_mask]
           )
+          embeddings = output[:embeddings]
 
           # Multiple Negatives Ranking Loss
           # Treat other samples in batch as negatives

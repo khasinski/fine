@@ -43,7 +43,7 @@ module Fine
         model = new(config, pooling_mode: pooling_mode)
 
         weights_path = File.join(path, "model.safetensors")
-        Hub::SafetensorsLoader.load_into_model(model, weights_path, strict: false)
+        Hub::SafetensorsLoader.load_into_model(model, weights_path, strict: false, skip_mapping: true)
 
         model
       end

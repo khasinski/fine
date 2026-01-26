@@ -9,7 +9,7 @@ module Fine
     class BertEncoder < Base
       attr_reader :embeddings, :encoder, :pooler
 
-      def initialize(config)
+      def initialize(config, use_pooler: true)
         super(config)
 
         @hidden_size = config.hidden_size
@@ -21,6 +21,7 @@ module Fine
         @type_vocab_size = config.type_vocab_size || 2
         @layer_norm_eps = config.layer_norm_eps
         @hidden_dropout_prob = config.hidden_dropout_prob || 0.1
+        @use_pooler = use_pooler
 
         # Embeddings
         @word_embeddings = Torch::NN::Embedding.new(@vocab_size, @hidden_size)
@@ -42,9 +43,11 @@ module Fine
           end
         )
 
-        # Pooler (for [CLS] token representation)
-        @pooler_dense = Torch::NN::Linear.new(@hidden_size, @hidden_size)
-        @pooler_activation = Torch::NN::Tanh.new
+        # Pooler (for [CLS] token representation) - optional for models like DistilBERT
+        if @use_pooler
+          @pooler_dense = Torch::NN::Linear.new(@hidden_size, @hidden_size)
+          @pooler_activation = Torch::NN::Tanh.new
+        end
       end
 
       def forward(input_ids, attention_mask: nil, token_type_ids: nil)
@@ -83,8 +86,14 @@ module Fine
 
         # Pool the [CLS] token (first token)
         cls_output = hidden_states[0.., 0, 0..]
-        pooled_output = @pooler_dense.call(cls_output)
-        pooled_output = @pooler_activation.call(pooled_output)
+
+        # Apply pooler if available, otherwise use CLS directly
+        pooled_output = if @use_pooler && @pooler_dense
+          temp = @pooler_dense.call(cls_output)
+          @pooler_activation.call(temp)
+        else
+          cls_output
+        end
 
         {
           last_hidden_state: hidden_states,

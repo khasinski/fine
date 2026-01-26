@@ -30,8 +30,12 @@ module Fine
           load_result = load_pretrained_weights(model, weights_path)
 
           if load_result[:missing_keys].any?
-            # Only warn about unexpected missing keys (classifier is expected to be missing)
-            encoder_missing = load_result[:missing_keys].reject { |k| k.include?("classifier") }
+            # Only warn about unexpected missing keys
+            # Expected missing: classifier (new), token_type_embeddings (DistilBERT), pooler (DistilBERT)
+            expected_missing = %w[classifier token_type_embeddings pooler_dense]
+            encoder_missing = load_result[:missing_keys].reject do |k|
+              expected_missing.any? { |exp| k.include?(exp) }
+            end
             if encoder_missing.any?
               warn "Missing encoder keys: #{encoder_missing.first(5).join(', ')}..."
             end
@@ -56,7 +60,7 @@ module Fine
         model = new(config, num_labels: num_labels)
 
         weights_path = File.join(path, "model.safetensors")
-        Hub::SafetensorsLoader.load_into_model(model, weights_path, strict: false)
+        Hub::SafetensorsLoader.load_into_model(model, weights_path, strict: false, skip_mapping: true)
 
         model
       end
@@ -66,8 +70,11 @@ module Fine
 
         @num_labels = num_labels
 
+        # Detect if this is DistilBERT (no pooler layer in pretrained weights)
+        use_pooler = config.model_type != "distilbert"
+
         # Encoder
-        @encoder = BertEncoder.new(config)
+        @encoder = BertEncoder.new(config, use_pooler: use_pooler)
 
         # Classification head
         @dropout = Torch::NN::Dropout.new(p: dropout)
@@ -83,6 +90,8 @@ module Fine
         )
 
         # Use pooled output for classification
+        # For DistilBERT (no pooler), this is the raw CLS token
+        # which works better than mean pooling for classification
         pooled_output = encoder_output[:pooler_output]
         pooled_output = @dropout.call(pooled_output)
 
@@ -186,6 +195,28 @@ module Fine
       def self.map_bert_weight_name(hf_name)
         name = hf_name.dup
 
+        # DistilBERT mappings (must come first as they're more specific)
+        if name.start_with?("distilbert.")
+          name = name.sub("distilbert.embeddings.word_embeddings", "encoder.word_embeddings")
+          name = name.sub("distilbert.embeddings.position_embeddings", "encoder.position_embeddings")
+          name = name.sub("distilbert.embeddings.LayerNorm", "encoder.embeddings_layer_norm")
+          name = name.gsub("distilbert.transformer.layer", "encoder.layers")
+
+          # DistilBERT attention naming
+          name = name.gsub(".attention.q_lin", ".attention.query")
+          name = name.gsub(".attention.k_lin", ".attention.key")
+          name = name.gsub(".attention.v_lin", ".attention.value")
+          name = name.gsub(".attention.out_lin", ".attention.out")
+          name = name.gsub(".sa_layer_norm", ".attention_layer_norm")
+
+          # DistilBERT FFN naming
+          name = name.gsub(".ffn.lin1", ".intermediate")
+          name = name.gsub(".ffn.lin2", ".output")
+
+          return name
+        end
+
+        # Standard BERT mappings
         # Embeddings
         name = name.sub("bert.embeddings.word_embeddings", "encoder.word_embeddings")
         name = name.sub("bert.embeddings.position_embeddings", "encoder.position_embeddings")

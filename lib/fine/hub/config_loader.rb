@@ -20,19 +20,19 @@ module Fine
 
       # Vision encoder configuration
       def hidden_size
-        vision_config["hidden_size"] || config["hidden_size"] || 768
+        vision_config["hidden_size"] || config["hidden_size"] || config["dim"] || 768
       end
 
       def num_hidden_layers
-        vision_config["num_hidden_layers"] || config["num_hidden_layers"] || 12
+        vision_config["num_hidden_layers"] || config["num_hidden_layers"] || config["n_layers"] || 12
       end
 
       def num_attention_heads
-        vision_config["num_attention_heads"] || config["num_attention_heads"] || 12
+        vision_config["num_attention_heads"] || config["num_attention_heads"] || config["n_heads"] || 12
       end
 
       def intermediate_size
-        vision_config["intermediate_size"] || config["intermediate_size"] || 3072
+        vision_config["intermediate_size"] || config["intermediate_size"] || config["hidden_dim"] || 3072
       end
 
       def image_size

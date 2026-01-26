@@ -10,8 +10,9 @@ module Fine
       # @param path [String] Path to the safetensors file
       # @param strict [Boolean] If true, raise error on missing/unexpected keys
       # @param prefix [String] Prefix to add/remove from weight names
+      # @param skip_mapping [Boolean] If true, skip weight name mapping (for loading saved Fine models)
       # @return [Hash] Hash with :missing_keys and :unexpected_keys arrays
-      def self.load_into_model(model, path, strict: false, prefix: nil)
+      def self.load_into_model(model, path, strict: false, prefix: nil, skip_mapping: false)
         tensors = Safetensors::Torch.load_file(path)
 
         # Get model's state dict keys
@@ -22,7 +23,7 @@ module Fine
         unexpected_keys = []
 
         tensors.each do |name, tensor|
-          mapped_name = map_weight_name(name, prefix: prefix)
+          mapped_name = skip_mapping ? name : map_weight_name(name, prefix: prefix)
 
           if model_keys.include?(mapped_name)
             mapped_tensors[mapped_name] = tensor
