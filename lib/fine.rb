@@ -34,6 +34,7 @@ require_relative "fine/datasets/data_loader"
 require_relative "fine/datasets/text_dataset"
 require_relative "fine/datasets/text_data_loader"
 require_relative "fine/datasets/instruction_dataset"
+require_relative "fine/datasets/instruction_data_loader"
 
 # Models - Vision
 require_relative "fine/models/base"
