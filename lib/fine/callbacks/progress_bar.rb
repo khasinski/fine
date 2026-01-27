@@ -15,9 +15,11 @@ module Fine
       def on_train_begin(trainer)
         return unless @show_epoch
 
+        # Handle both hash (old style) and trainer object
+        config = trainer.is_a?(Hash) ? trainer[:config] : trainer.config
         @epoch_bar = TTY::ProgressBar.new(
           "Training [:bar] :current/:total epochs",
-          total: trainer.config.epochs,
+          total: config.epochs,
           width: 30
         )
       end
@@ -25,9 +27,18 @@ module Fine
       def on_epoch_begin(trainer, epoch)
         return unless @show_batch
 
+        # Handle both old style (epoch, total_steps:) and new style (trainer, epoch)
+        total = if trainer.respond_to?(:train_loader) && trainer.train_loader
+                  trainer.train_loader.size
+                elsif trainer.is_a?(Hash) && trainer[:total_steps]
+                  trainer[:total_steps]
+                else
+                  100 # fallback
+                end
+
         @batch_bar = TTY::ProgressBar.new(
           "  Epoch #{epoch + 1} [:bar] :current/:total batches :rate/s",
-          total: trainer.train_loader.size,
+          total: total,
           width: 25,
           hide_cursor: true
         )
@@ -47,7 +58,7 @@ module Fine
         @epoch_bar&.advance
       end
 
-      def on_train_end(_trainer)
+      def on_train_end(trainer)
         @epoch_bar&.finish
         puts "Training complete!"
       end

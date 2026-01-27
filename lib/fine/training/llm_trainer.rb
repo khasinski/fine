@@ -4,7 +4,7 @@ module Fine
   module Training
     # Trainer for causal language model fine-tuning
     class LLMTrainer
-      attr_reader :model, :config, :train_dataset, :val_dataset
+      attr_reader :model, :config, :train_dataset, :val_dataset, :train_loader, :history
 
       def initialize(model, config, train_dataset:, val_dataset: nil)
         @model = model
@@ -13,16 +13,20 @@ module Fine
         @val_dataset = val_dataset
         @device = Fine.device
         @history = []
+        @train_loader = nil
       end
 
       def fit
         @model.to(@device)
         @model.train
 
+        # Create train loader early so callbacks can access it
+        @train_loader = create_data_loader(@train_dataset, shuffle: true)
+
         optimizer = create_optimizer
         scheduler = create_scheduler(optimizer)
 
-        @config.callbacks.each { |cb| cb.on_train_begin(model: @model, config: @config) }
+        @config.callbacks.each { |cb| cb.on_train_begin(self) }
 
         @config.epochs.times do |epoch|
           epoch_loss = train_epoch(optimizer, scheduler, epoch)
@@ -41,7 +45,7 @@ module Fine
           @config.callbacks.each { |cb| cb.on_epoch_end(self, epoch + 1, metrics) }
         end
 
-        @config.callbacks.each { |cb| cb.on_train_end(history: @history) }
+        @config.callbacks.each { |cb| cb.on_train_end(self) }
 
         @history
       end
@@ -82,14 +86,13 @@ module Fine
         total_loss = 0.0
         num_batches = 0
 
-        data_loader = create_data_loader(@train_dataset, shuffle: true)
-        total_steps = data_loader.size
+        total_steps = @train_loader.size
 
         @config.callbacks.each do |cb|
-          cb.on_epoch_begin(epoch + 1, total_steps: total_steps) if cb.respond_to?(:on_epoch_begin)
+          cb.on_epoch_begin(self, epoch) if cb.respond_to?(:on_epoch_begin)
         end
 
-        data_loader.each_with_index do |batch, step|
+        @train_loader.each_with_index do |batch, step|
           # Move batch to device
           input_ids = batch[:input_ids].to(@device)
           attention_mask = batch[:attention_mask].to(@device)
