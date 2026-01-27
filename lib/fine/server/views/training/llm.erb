@@ -1,0 +1,107 @@
+<div class="max-w-2xl mx-auto">
+  <div class="mb-6">
+    <a href="/" class="text-blue-600 hover:text-blue-800">← Back to Dashboard</a>
+  </div>
+
+  <div class="bg-white rounded-lg shadow p-6">
+    <h1 class="text-xl font-bold text-gray-900 mb-6">LLM Fine-tuning with LoRA</h1>
+
+    <form action="/training/start" method="POST" enctype="multipart/form-data" class="space-y-6">
+      <input type="hidden" name="type" value="llm">
+
+      <!-- Model Selection -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
+        <select name="model_id" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+          <option value="google/gemma-3-1b-it">Gemma 3 1B (fast, recommended)</option>
+          <option value="google/gemma-3-4b-it">Gemma 3 4B (better quality)</option>
+          <option value="meta-llama/Llama-3.2-1B">Llama 3.2 1B</option>
+          <option value="meta-llama/Llama-3.2-3B">Llama 3.2 3B</option>
+          <option value="Qwen/Qwen2-1.5B">Qwen2 1.5B</option>
+        </select>
+      </div>
+
+      <!-- Training Data -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Training Data (JSONL)</label>
+        <input type="file" name="train_file" accept=".jsonl" required
+               class="w-full border border-gray-300 rounded-md p-2">
+        <p class="text-xs text-gray-500 mt-1">
+          Format: {"instruction": "...", "input": "...", "output": "..."}
+        </p>
+      </div>
+
+      <!-- Validation Data -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Validation Data (optional)</label>
+        <input type="file" name="val_file" accept=".jsonl"
+               class="w-full border border-gray-300 rounded-md p-2">
+      </div>
+
+      <!-- Basic Options -->
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Epochs</label>
+          <input type="number" name="epochs" value="3" min="1" max="100"
+                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Batch Size</label>
+          <input type="number" name="batch_size" value="4" min="1" max="64"
+                 class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+        </div>
+      </div>
+
+      <!-- LoRA Toggle -->
+      <div class="flex items-center">
+        <input type="checkbox" name="use_lora" value="true" checked id="use_lora"
+               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+        <label for="use_lora" class="ml-2 text-sm text-gray-700">
+          Use LoRA (recommended - trains only 0.5% of parameters)
+        </label>
+      </div>
+
+      <!-- Advanced Options -->
+      <details class="border rounded-md">
+        <summary class="px-4 py-2 cursor-pointer text-sm font-medium text-gray-700 hover:bg-gray-50">
+          Advanced Options
+        </summary>
+        <div class="p-4 space-y-4 border-t bg-gray-50">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Learning Rate</label>
+              <input type="number" name="learning_rate" value="0.00002" step="0.000001"
+                     class="w-full border-gray-300 rounded-md shadow-sm text-sm">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Max Length</label>
+              <input type="number" name="max_length" value="512" min="64" max="4096"
+                     class="w-full border-gray-300 rounded-md shadow-sm text-sm">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">LoRA Rank</label>
+              <input type="number" name="lora_rank" value="8" min="1" max="128"
+                     class="w-full border-gray-300 rounded-md shadow-sm text-sm">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">LoRA Alpha</label>
+              <input type="number" name="lora_alpha" value="16" min="1" max="256"
+                     class="w-full border-gray-300 rounded-md shadow-sm text-sm">
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- Submit -->
+      <div class="pt-4">
+        <button type="submit"
+                class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 font-medium">
+          Start Training
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

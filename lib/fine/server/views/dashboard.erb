@@ -1,0 +1,122 @@
+<div class="space-y-8">
+  <!-- Header -->
+  <div class="flex justify-between items-center">
+    <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+    <div class="flex space-x-2">
+      <a href="/training/new/llm" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+        New LLM Training
+      </a>
+    </div>
+  </div>
+
+  <!-- Active Training -->
+  <% if @active_sessions.any? %>
+  <div class="bg-white rounded-lg shadow p-6">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Active Training</h2>
+    <div class="space-y-4">
+      <% @active_sessions.each do |session| %>
+      <div class="border rounded-lg p-4 hover:bg-gray-50">
+        <div class="flex justify-between items-start">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                Running
+              </span>
+              <span class="font-medium text-gray-900"><%= session.type.to_s.gsub('_', ' ').capitalize %></span>
+            </div>
+            <p class="text-sm text-gray-500 mt-1"><%= session.config[:model_id] %></p>
+            <% if session.metrics[:current_epoch] %>
+            <p class="text-sm text-gray-600 mt-1">
+              Epoch <%= session.metrics[:current_epoch] %>/<%= session.config[:epochs] %>
+              <% if session.metrics[:current_loss] %>
+              | Loss: <%= session.metrics[:current_loss].round(4) %>
+              <% end %>
+            </p>
+            <% end %>
+          </div>
+          <a href="/training/<%= session.id %>" class="text-blue-600 hover:text-blue-800 text-sm">
+            View Progress →
+          </a>
+        </div>
+      </div>
+      <% end %>
+    </div>
+  </div>
+  <% end %>
+
+  <!-- Quick Start Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <a href="/training/new/llm" class="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+      <div class="text-3xl mb-3">🤖</div>
+      <h3 class="font-semibold text-gray-900">LLM Fine-tuning</h3>
+      <p class="text-sm text-gray-500 mt-1">Fine-tune Gemma, Llama, or Qwen with LoRA</p>
+    </a>
+
+    <a href="/training/new/text_classifier" class="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+      <div class="text-3xl mb-3">📝</div>
+      <h3 class="font-semibold text-gray-900">Text Classification</h3>
+      <p class="text-sm text-gray-500 mt-1">Sentiment, intent, or custom categories</p>
+    </a>
+
+    <a href="/training/new/image_classifier" class="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+      <div class="text-3xl mb-3">🖼️</div>
+      <h3 class="font-semibold text-gray-900">Image Classification</h3>
+      <p class="text-sm text-gray-500 mt-1">Classify images with SigLIP2</p>
+    </a>
+
+    <a href="/training/new/embedder" class="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+      <div class="text-3xl mb-3">🔍</div>
+      <h3 class="font-semibold text-gray-900">Text Embeddings</h3>
+      <p class="text-sm text-gray-500 mt-1">Domain-specific semantic search</p>
+    </a>
+  </div>
+
+  <!-- Recent Sessions -->
+  <% if @recent_sessions.any? %>
+  <div class="bg-white rounded-lg shadow">
+    <div class="px-6 py-4 border-b">
+      <h2 class="text-lg font-semibold text-gray-900">Recent Training Sessions</h2>
+    </div>
+    <div class="divide-y">
+      <% @recent_sessions.reverse.each do |session| %>
+      <div class="px-6 py-4 flex justify-between items-center hover:bg-gray-50">
+        <div class="flex items-center space-x-4">
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+            <%= session.status == :completed ? 'bg-green-100 text-green-800' :
+                session.status == :failed ? 'bg-red-100 text-red-800' :
+                'bg-gray-100 text-gray-800' %>">
+            <%= session.status.to_s.capitalize %>
+          </span>
+          <div>
+            <p class="font-medium text-gray-900"><%= session.type.to_s.gsub('_', ' ').capitalize %></p>
+            <p class="text-sm text-gray-500"><%= session.config[:model_id] %></p>
+          </div>
+        </div>
+        <div class="flex items-center space-x-4">
+          <% if session.completed_at %>
+          <span class="text-sm text-gray-500"><%= session.completed_at.strftime('%b %d, %H:%M') %></span>
+          <% end %>
+          <% if session.status == :completed %>
+          <a href="/inference/<%= session.type == :llm ? 'chat' : session.type == :embedder ? 'similarity' : 'classify' %>/<%= session.id %>"
+             class="text-blue-600 hover:text-blue-800 text-sm">Test</a>
+          <a href="/export/<%= session.id %>" class="text-blue-600 hover:text-blue-800 text-sm">Export</a>
+          <% end %>
+        </div>
+      </div>
+      <% end %>
+    </div>
+  </div>
+  <% end %>
+
+  <!-- Empty State -->
+  <% if @active_sessions.empty? && @recent_sessions.empty? %>
+  <div class="text-center py-12">
+    <div class="text-6xl mb-4">🚀</div>
+    <h3 class="text-lg font-medium text-gray-900">No training sessions yet</h3>
+    <p class="text-gray-500 mt-1">Get started by creating your first training job</p>
+    <a href="/training/new/llm" class="inline-block mt-4 bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">
+      Start Training
+    </a>
+  </div>
+  <% end %>
+</div>

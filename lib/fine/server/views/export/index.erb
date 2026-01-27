@@ -1,0 +1,176 @@
+<div class="max-w-2xl mx-auto">
+  <div class="mb-6">
+    <a href="/" class="text-blue-600 hover:text-blue-800">← Back to Dashboard</a>
+  </div>
+
+  <div class="bg-white rounded-lg shadow p-6">
+    <h1 class="text-xl font-bold text-gray-900 mb-2">Export Model</h1>
+    <p class="text-sm text-gray-500 mb-6"><%= @session.config[:model_id] %></p>
+
+    <div class="space-y-6">
+      <!-- ONNX Export -->
+      <div class="border rounded-lg p-4">
+        <div class="flex justify-between items-start">
+          <div>
+            <h3 class="font-semibold text-gray-900">ONNX</h3>
+            <p class="text-sm text-gray-500 mt-1">
+              Universal format for ONNX Runtime, TensorRT, OpenVINO
+            </p>
+          </div>
+          <button onclick="exportModel('onnx')"
+                  class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm">
+            Export ONNX
+          </button>
+        </div>
+      </div>
+
+      <% if @session.type == :llm %>
+      <!-- GGUF Export (LLMs only) -->
+      <div class="border rounded-lg p-4">
+        <div class="flex justify-between items-start">
+          <div>
+            <h3 class="font-semibold text-gray-900">GGUF</h3>
+            <p class="text-sm text-gray-500 mt-1">
+              For llama.cpp and Ollama
+            </p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <select id="quantization" class="border-gray-300 rounded-md text-sm">
+              <option value="f16">F16 (no quantization)</option>
+              <option value="q8_0">Q8_0 (8-bit)</option>
+              <option value="q4_0">Q4_0 (4-bit)</option>
+              <option value="q4_k_m">Q4_K_M (4-bit, recommended)</option>
+            </select>
+            <button onclick="exportModel('gguf')"
+                    class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm">
+              Export GGUF
+            </button>
+          </div>
+        </div>
+      </div>
+      <% end %>
+
+      <!-- Save Model -->
+      <div class="border rounded-lg p-4">
+        <div class="flex justify-between items-start">
+          <div>
+            <h3 class="font-semibold text-gray-900">Save Model</h3>
+            <p class="text-sm text-gray-500 mt-1">
+              Save to local directory for later use
+            </p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <input type="text" id="model-name" placeholder="my_model"
+                   class="border-gray-300 rounded-md text-sm w-32">
+            <button onclick="saveModel()"
+                    class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 text-sm">
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div id="export-status" class="mt-6 hidden">
+      <div id="export-loading" class="text-center text-gray-500 hidden">
+        <span class="animate-pulse">Exporting... This may take a while for large models.</span>
+      </div>
+      <div id="export-success" class="bg-green-50 border border-green-200 rounded-md p-4 hidden">
+        <p class="text-green-800 font-medium">Export Complete!</p>
+        <a id="download-link" href="#" class="text-green-600 hover:text-green-800 text-sm mt-2 inline-block">
+          Download file
+        </a>
+      </div>
+      <div id="export-error" class="bg-red-50 border border-red-200 rounded-md p-4 hidden">
+        <p class="text-red-800 font-medium">Export Failed</p>
+        <p id="error-message" class="text-red-700 text-sm mt-1"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const statusDiv = document.getElementById('export-status');
+const loadingDiv = document.getElementById('export-loading');
+const successDiv = document.getElementById('export-success');
+const errorDiv = document.getElementById('export-error');
+const downloadLink = document.getElementById('download-link');
+const errorMessage = document.getElementById('error-message');
+
+function resetStatus() {
+  statusDiv.classList.remove('hidden');
+  loadingDiv.classList.remove('hidden');
+  successDiv.classList.add('hidden');
+  errorDiv.classList.add('hidden');
+}
+
+function showSuccess(url, filename) {
+  loadingDiv.classList.add('hidden');
+  successDiv.classList.remove('hidden');
+  downloadLink.href = url;
+  downloadLink.textContent = 'Download ' + filename;
+}
+
+function showError(message) {
+  loadingDiv.classList.add('hidden');
+  errorDiv.classList.remove('hidden');
+  errorMessage.textContent = message;
+}
+
+async function exportModel(format) {
+  resetStatus();
+
+  const endpoint = format === 'gguf'
+    ? `/export/<%= @session.id %>/gguf`
+    : `/export/<%= @session.id %>/onnx`;
+
+  const body = format === 'gguf'
+    ? { quantization: document.getElementById('quantization').value }
+    : {};
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    const data = await response.json();
+
+    if (data.download_url) {
+      showSuccess(data.download_url, data.filename);
+    } else if (data.error) {
+      showError(data.error);
+    }
+  } catch (err) {
+    showError('Export failed: ' + err.message);
+  }
+}
+
+async function saveModel() {
+  const name = document.getElementById('model-name').value.trim() || 'model_<%= @session.id[0..7] %>';
+  resetStatus();
+
+  try {
+    const response = await fetch('/training/<%= @session.id %>/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+
+    const data = await response.json();
+
+    if (data.path) {
+      loadingDiv.classList.add('hidden');
+      successDiv.classList.remove('hidden');
+      downloadLink.removeAttribute('href');
+      downloadLink.textContent = 'Saved to: ' + data.path;
+    } else if (data.error) {
+      showError(data.error);
+    }
+  } catch (err) {
+    showError('Save failed: ' + err.message);
+  }
+}
+</script>

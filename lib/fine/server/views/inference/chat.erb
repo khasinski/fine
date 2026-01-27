@@ -1,0 +1,121 @@
+<div class="max-w-3xl mx-auto h-[calc(100vh-12rem)]">
+  <div class="mb-4 flex justify-between items-center">
+    <a href="/" class="text-blue-600 hover:text-blue-800">← Back to Dashboard</a>
+    <a href="/export/<%= @session.id %>" class="text-gray-600 hover:text-gray-800 text-sm">Export Model</a>
+  </div>
+
+  <div class="bg-white rounded-lg shadow h-full flex flex-col">
+    <div class="px-6 py-4 border-b">
+      <h1 class="text-lg font-bold text-gray-900">Chat with your model</h1>
+      <p class="text-sm text-gray-500"><%= @session.config[:model_id] %></p>
+    </div>
+
+    <!-- Messages -->
+    <div id="messages" class="flex-1 overflow-y-auto p-6 space-y-4">
+      <div class="text-center text-gray-400 text-sm py-8">
+        Start a conversation with your fine-tuned model
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div class="border-t p-4">
+      <form id="chat-form" class="flex gap-2">
+        <input type="text" id="chat-input"
+               placeholder="Type your message..."
+               autocomplete="off"
+               class="flex-1 border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+        <button type="submit"
+                class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">
+          Send
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+const messagesContainer = document.getElementById('messages');
+const chatForm = document.getElementById('chat-form');
+const chatInput = document.getElementById('chat-input');
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function addMessage(role, content) {
+  // Remove empty state if present
+  const emptyState = messagesContainer.querySelector('.text-center');
+  if (emptyState) emptyState.remove();
+
+  const div = document.createElement('div');
+  div.className = role === 'user' ? 'flex justify-end' : 'flex justify-start';
+
+  const bubble = document.createElement('div');
+  bubble.className = role === 'user'
+    ? 'max-w-[80%] bg-blue-600 text-white rounded-lg px-4 py-2'
+    : 'max-w-[80%] bg-gray-100 text-gray-900 rounded-lg px-4 py-2';
+  bubble.innerHTML = escapeHtml(content).replace(/\n/g, '<br>');
+
+  div.appendChild(bubble);
+  messagesContainer.appendChild(div);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function addTypingIndicator() {
+  const div = document.createElement('div');
+  div.id = 'typing';
+  div.className = 'flex justify-start';
+  div.innerHTML = `
+    <div class="bg-gray-100 text-gray-500 rounded-lg px-4 py-2">
+      <span class="animate-pulse">Thinking...</span>
+    </div>
+  `;
+  messagesContainer.appendChild(div);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function removeTypingIndicator() {
+  const typing = document.getElementById('typing');
+  if (typing) typing.remove();
+}
+
+chatForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const message = chatInput.value.trim();
+  if (!message) return;
+
+  addMessage('user', message);
+  chatInput.value = '';
+  chatInput.disabled = true;
+
+  addTypingIndicator();
+
+  try {
+    const response = await fetch('/inference/chat/<%= @session.id %>', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message })
+    });
+
+    const data = await response.json();
+    removeTypingIndicator();
+
+    if (data.response) {
+      addMessage('assistant', data.response);
+    } else if (data.error) {
+      addMessage('assistant', 'Error: ' + data.error);
+    }
+  } catch (err) {
+    removeTypingIndicator();
+    addMessage('assistant', 'Error: Failed to get response');
+  }
+
+  chatInput.disabled = false;
+  chatInput.focus();
+});
+
+chatInput.focus();
+</script>

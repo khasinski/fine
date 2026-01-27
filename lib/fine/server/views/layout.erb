@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fine - ML Fine-tuning</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <nav class="bg-white shadow-sm border-b">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between h-16">
+        <div class="flex items-center">
+          <a href="/" class="text-xl font-bold text-gray-900">Fine</a>
+          <span class="ml-2 text-sm text-gray-500">v<%= Fine::VERSION %></span>
+        </div>
+        <div class="flex items-center space-x-4">
+          <a href="/" class="text-gray-600 hover:text-gray-900">Dashboard</a>
+          <div class="relative group">
+            <button class="text-gray-600 hover:text-gray-900">New Training</button>
+            <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg hidden group-hover:block z-10">
+              <a href="/training/new/llm" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">LLM (LoRA)</a>
+              <a href="/training/new/text_classifier" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Text Classifier</a>
+              <a href="/training/new/image_classifier" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Image Classifier</a>
+              <a href="/training/new/embedder" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Embeddings</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <%= yield %>
+  </main>
+
+  <footer class="border-t mt-auto py-4">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-500 text-sm">
+      Fine - Ruby ML Fine-tuning
+    </div>
+  </footer>
+</body>
+</html>

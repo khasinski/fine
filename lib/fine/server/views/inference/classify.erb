@@ -1,0 +1,152 @@
+<div class="max-w-2xl mx-auto">
+  <div class="mb-4 flex justify-between items-center">
+    <a href="/" class="text-blue-600 hover:text-blue-800">← Back to Dashboard</a>
+    <a href="/export/<%= @session.id %>" class="text-gray-600 hover:text-gray-800 text-sm">Export Model</a>
+  </div>
+
+  <div class="bg-white rounded-lg shadow p-6">
+    <h1 class="text-xl font-bold text-gray-900 mb-2">Test Classification</h1>
+    <p class="text-sm text-gray-500 mb-6"><%= @session.config[:model_id] %></p>
+
+    <% if @session.type == :image_classifier %>
+    <!-- Image Classification -->
+    <div class="space-y-6">
+      <div id="drop-zone"
+           class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors cursor-pointer">
+        <input type="file" id="image-input" accept="image/*" class="hidden">
+        <div class="text-gray-500">
+          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          <p class="mt-2">Drop an image here or click to upload</p>
+        </div>
+      </div>
+
+      <div id="preview" class="hidden">
+        <img id="preview-image" class="max-w-full h-auto rounded-lg mx-auto" style="max-height: 300px;">
+      </div>
+    </div>
+    <% else %>
+    <!-- Text Classification -->
+    <form id="classify-form" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Enter text to classify</label>
+        <textarea id="text-input" rows="4" required
+                  class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Type or paste text here..."></textarea>
+      </div>
+      <button type="submit"
+              class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+        Classify
+      </button>
+    </form>
+    <% end %>
+
+    <!-- Results -->
+    <div id="results" class="mt-6 hidden">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">Predictions</h2>
+      <div id="predictions" class="space-y-2"></div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="mt-6 hidden text-center text-gray-500">
+      <span class="animate-pulse">Classifying...</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const resultsDiv = document.getElementById('results');
+const predictionsDiv = document.getElementById('predictions');
+const loadingDiv = document.getElementById('loading');
+
+function showPredictions(predictions) {
+  predictionsDiv.innerHTML = '';
+
+  predictions.forEach((pred, i) => {
+    const percent = (pred.score * 100).toFixed(1);
+    const div = document.createElement('div');
+    div.className = 'flex items-center space-x-3';
+    div.innerHTML = `
+      <span class="w-24 text-sm font-medium text-gray-700 truncate">${pred.label}</span>
+      <div class="flex-1 bg-gray-200 rounded-full h-4">
+        <div class="bg-blue-600 h-4 rounded-full transition-all duration-300"
+             style="width: ${percent}%"></div>
+      </div>
+      <span class="w-16 text-sm text-gray-600 text-right">${percent}%</span>
+    `;
+    predictionsDiv.appendChild(div);
+  });
+
+  loadingDiv.classList.add('hidden');
+  resultsDiv.classList.remove('hidden');
+}
+
+async function classify(input) {
+  loadingDiv.classList.remove('hidden');
+  resultsDiv.classList.add('hidden');
+
+  try {
+    const response = await fetch('/inference/classify/<%= @session.id %>', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input })
+    });
+
+    const data = await response.json();
+    if (data.predictions) {
+      showPredictions(data.predictions);
+    }
+  } catch (err) {
+    loadingDiv.classList.add('hidden');
+    alert('Classification failed');
+  }
+}
+
+<% if @session.type == :image_classifier %>
+const dropZone = document.getElementById('drop-zone');
+const imageInput = document.getElementById('image-input');
+const preview = document.getElementById('preview');
+const previewImage = document.getElementById('preview-image');
+
+dropZone.addEventListener('click', () => imageInput.click());
+
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('border-blue-500');
+});
+
+dropZone.addEventListener('dragleave', () => {
+  dropZone.classList.remove('border-blue-500');
+});
+
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('border-blue-500');
+  const file = e.dataTransfer.files[0];
+  if (file) handleImage(file);
+});
+
+imageInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) handleImage(file);
+});
+
+function handleImage(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    previewImage.src = e.target.result;
+    preview.classList.remove('hidden');
+    classify(e.target.result);
+  };
+  reader.readAsDataURL(file);
+}
+<% else %>
+document.getElementById('classify-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const text = document.getElementById('text-input').value.trim();
+  if (text) classify(text);
+});
+<% end %>
+</script>

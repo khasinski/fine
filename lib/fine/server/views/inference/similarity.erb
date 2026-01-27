@@ -1,0 +1,117 @@
+<div class="max-w-3xl mx-auto">
+  <div class="mb-4 flex justify-between items-center">
+    <a href="/" class="text-blue-600 hover:text-blue-800">← Back to Dashboard</a>
+    <a href="/export/<%= @session.id %>" class="text-gray-600 hover:text-gray-800 text-sm">Export Model</a>
+  </div>
+
+  <div class="bg-white rounded-lg shadow p-6">
+    <h1 class="text-xl font-bold text-gray-900 mb-2">Similarity Search</h1>
+    <p class="text-sm text-gray-500 mb-6"><%= @session.config[:model_id] %></p>
+
+    <form id="similarity-form" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Query</label>
+        <input type="text" id="query-input" required
+               class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+               placeholder="Enter your search query...">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Corpus (one document per line)</label>
+        <textarea id="corpus-input" rows="8" required
+                  class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                  placeholder="Document 1
+Document 2
+Document 3
+..."></textarea>
+      </div>
+
+      <div class="flex items-center space-x-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Top K</label>
+          <input type="number" id="top-k" value="5" min="1" max="20"
+                 class="w-24 border-gray-300 rounded-md shadow-sm text-sm">
+        </div>
+        <button type="submit"
+                class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 mt-5">
+          Search
+        </button>
+      </div>
+    </form>
+
+    <!-- Results -->
+    <div id="results" class="mt-6 hidden">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">Results</h2>
+      <div id="search-results" class="space-y-3"></div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="mt-6 hidden text-center text-gray-500">
+      <span class="animate-pulse">Searching...</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const resultsDiv = document.getElementById('results');
+const searchResultsDiv = document.getElementById('search-results');
+const loadingDiv = document.getElementById('loading');
+
+document.getElementById('similarity-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const query = document.getElementById('query-input').value.trim();
+  const corpusText = document.getElementById('corpus-input').value.trim();
+  const topK = parseInt(document.getElementById('top-k').value);
+
+  if (!query || !corpusText) return;
+
+  const corpus = corpusText.split('\n').filter(line => line.trim());
+
+  loadingDiv.classList.remove('hidden');
+  resultsDiv.classList.add('hidden');
+
+  try {
+    const response = await fetch('/inference/similarity/<%= @session.id %>', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, corpus, top_k: topK })
+    });
+
+    const data = await response.json();
+    loadingDiv.classList.add('hidden');
+
+    if (data.results) {
+      showResults(data.results, corpus);
+    }
+  } catch (err) {
+    loadingDiv.classList.add('hidden');
+    alert('Search failed');
+  }
+});
+
+function showResults(results, corpus) {
+  searchResultsDiv.innerHTML = '';
+
+  results.forEach((result, i) => {
+    const div = document.createElement('div');
+    div.className = 'border rounded-lg p-4 hover:bg-gray-50';
+    div.innerHTML = `
+      <div class="flex justify-between items-start mb-2">
+        <span class="text-sm font-medium text-gray-500">#${i + 1}</span>
+        <span class="text-sm text-blue-600 font-medium">${(result.score * 100).toFixed(1)}% match</span>
+      </div>
+      <p class="text-gray-900">${escapeHtml(result.text || corpus[result.index])}</p>
+    `;
+    searchResultsDiv.appendChild(div);
+  });
+
+  resultsDiv.classList.remove('hidden');
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+</script>

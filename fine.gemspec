@@ -40,6 +40,11 @@ Gem::Specification.new do |spec|
   spec.add_dependency "tty-progressbar", ">= 0.18"
   spec.add_dependency "down", ">= 5.0"
 
+  # Web server (for `fine server` command)
+  spec.add_dependency "sinatra", "~> 4.0"
+  spec.add_dependency "puma", "~> 6.0"
+  spec.add_dependency "rackup", "~> 2.1"
+
   # Development dependencies
   spec.add_development_dependency "rake", "~> 13.0"
   spec.add_development_dependency "rspec", "~> 3.12"
