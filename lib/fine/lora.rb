@@ -93,6 +93,8 @@ module Fine
       # @param target_modules [Array<String>] Module names to apply LoRA to
       # @return [Torch::NN::Module] Model with LoRA applied
       def apply(model, rank: 8, alpha: 16, dropout: 0.0, target_modules: nil)
+        raise ArgumentError, "Model cannot be nil for LoRA.apply" if model.nil?
+
         target_modules ||= default_target_modules
 
         # First freeze all parameters

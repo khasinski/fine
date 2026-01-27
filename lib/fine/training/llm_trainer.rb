@@ -155,6 +155,8 @@ module Fine
         decay_params = []
         no_decay_params = []
 
+        raise "Model is nil in create_optimizer" if @model.nil?
+
         @model.named_parameters.each do |name, param|
           next unless param.requires_grad
 
@@ -165,10 +167,20 @@ module Fine
           end
         end
 
+        # If no trainable params found (e.g., after LoRA), get LoRA params
+        if decay_params.empty? && no_decay_params.empty?
+          lora_params = LoRA.trainable_parameters(@model)
+          if lora_params.any?
+            decay_params = lora_params
+          else
+            raise TrainingError, "No trainable parameters found. Did you forget to apply LoRA or unfreeze layers?"
+          end
+        end
+
         param_groups = [
           { params: decay_params, weight_decay: @config.weight_decay },
           { params: no_decay_params, weight_decay: 0.0 }
-        ]
+        ].reject { |g| g[:params].empty? }
 
         Torch::Optim::AdamW.new(param_groups, lr: @config.learning_rate)
       end
