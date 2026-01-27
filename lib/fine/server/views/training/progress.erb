@@ -48,7 +48,6 @@
     </div>
 
     <!-- Metrics History -->
-    <% if @session.history.any? %>
     <div class="mb-6">
       <h2 class="text-lg font-semibold text-gray-900 mb-4">Epoch History</h2>
       <div class="overflow-x-auto">
@@ -72,7 +71,6 @@
         </table>
       </div>
     </div>
-    <% end %>
 
     <!-- Actions (shown when complete) -->
     <div id="actions-section" class="<%= @session.status == :completed ? '' : 'hidden' %> border-t pt-6 mt-6">
@@ -160,19 +158,25 @@ eventSource.addEventListener('epoch_end', (e) => {
   document.getElementById('progress-bar').style.width =
     (data.epoch / <%= @session.config[:epochs] %> * 100) + '%';
 
-  // Update chart
-  chart.data.datasets[0].data.push({ x: data.epoch, y: data.metrics.loss });
-  chart.update('none');
+  // Update chart - check if epoch already exists to avoid duplicates
+  const existingEpochs = chart.data.datasets[0].data.map(d => d.x);
+  if (!existingEpochs.includes(data.epoch)) {
+    chart.data.datasets[0].data.push({ x: data.epoch, y: data.metrics.loss });
+    chart.update('none');
+  }
 
-  // Update table
+  // Update table - check if row already exists
   const tbody = document.getElementById('history-table');
-  const row = document.createElement('tr');
-  row.innerHTML = `
-    <td class="px-4 py-2 text-sm text-gray-900">${data.epoch}</td>
-    <td class="px-4 py-2 text-sm text-gray-600">${data.metrics.loss?.toFixed(4) || '-'}</td>
-    <td class="px-4 py-2 text-sm text-gray-600">${data.metrics.val_loss?.toFixed(4) || '-'}</td>
-  `;
-  tbody.appendChild(row);
+  if (tbody && !document.querySelector(`#history-table tr[data-epoch="${data.epoch}"]`)) {
+    const row = document.createElement('tr');
+    row.setAttribute('data-epoch', data.epoch);
+    row.innerHTML = `
+      <td class="px-4 py-2 text-sm text-gray-900">${data.epoch}</td>
+      <td class="px-4 py-2 text-sm text-gray-600">${data.metrics.loss?.toFixed(4) || '-'}</td>
+      <td class="px-4 py-2 text-sm text-gray-600">${data.metrics.val_loss?.toFixed(4) || '-'}</td>
+    `;
+    tbody.appendChild(row);
+  }
 
   batchLosses = [];
 });
