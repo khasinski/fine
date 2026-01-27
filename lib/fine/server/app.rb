@@ -206,19 +206,46 @@ module Fine
 
       def parse_training_config(params)
         {
-          model_id: params[:model_id],
-          train_file: params[:train_file],
-          val_file: params[:val_file],
-          train_dir: params[:train_dir],
-          val_dir: params[:val_dir],
+          model_id: params[:model_id]&.to_s,
+          train_file: extract_file_path(params[:train_file]),
+          val_file: extract_file_path(params[:val_file]),
+          train_dir: params[:train_dir]&.to_s,
+          val_dir: params[:val_dir]&.to_s,
           epochs: (params[:epochs] || 3).to_i,
           batch_size: (params[:batch_size] || 4).to_i,
           learning_rate: (params[:learning_rate] || 2e-5).to_f,
           max_length: (params[:max_length] || 512).to_i,
-          use_lora: params[:use_lora] == "true" || params[:use_lora] == "1",
+          use_lora: params[:use_lora] == "true" || params[:use_lora] == "1" || params[:use_lora] == true,
           lora_rank: (params[:lora_rank] || 8).to_i,
           lora_alpha: (params[:lora_alpha] || 16).to_i
         }
+      end
+
+      def extract_file_path(param)
+        return nil if param.nil?
+        return param.to_s if param.is_a?(String)
+
+        # Handle file upload hash (Sinatra/Rack style)
+        if param.is_a?(Hash)
+          if param[:tempfile]
+            # Save uploaded file and return path
+            uploads_dir = File.join(Dir.pwd, "uploads")
+            FileUtils.mkdir_p(uploads_dir)
+            filename = param[:filename] || "upload_#{Time.now.to_i}.jsonl"
+            path = File.join(uploads_dir, filename)
+            FileUtils.cp(param[:tempfile].path, path)
+            return path
+          elsif param["tempfile"]
+            uploads_dir = File.join(Dir.pwd, "uploads")
+            FileUtils.mkdir_p(uploads_dir)
+            filename = param["filename"] || "upload_#{Time.now.to_i}.jsonl"
+            path = File.join(uploads_dir, filename)
+            FileUtils.cp(param["tempfile"].path, path)
+            return path
+          end
+        end
+
+        param.to_s
       end
     end
   end
