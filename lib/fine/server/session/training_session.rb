@@ -148,20 +148,18 @@ module Fine
           model_id = @config[:model_id] || "google/gemma-3-1b-it"
 
           @model = Fine::LLM.new(model_id) do |cfg|
-            cfg.epochs = @config[:epochs]
-            cfg.batch_size = @config[:batch_size]
-            cfg.learning_rate = @config[:learning_rate]
-            cfg.max_length = @config[:max_length]
+            cfg.epochs = @config[:epochs] if @config[:epochs]
+            cfg.batch_size = @config[:batch_size] if @config[:batch_size]
+            cfg.learning_rate = @config[:learning_rate] if @config[:learning_rate]
+            cfg.max_length = @config[:max_length] if @config[:max_length]
             cfg.callbacks << Callbacks::WebCallback.new(self)
-          end
 
-          # Apply LoRA if requested
-          if @config[:use_lora]
-            Fine::LoRA.apply(
-              @model.instance_variable_get(:@model),
-              rank: @config[:lora_rank],
-              alpha: @config[:lora_alpha]
-            )
+            # LoRA configuration
+            if @config[:use_lora]
+              cfg.use_lora = true
+              cfg.lora_rank = @config[:lora_rank] || 8
+              cfg.lora_alpha = @config[:lora_alpha] || 16
+            end
           end
 
           @model.fit(train_file: @config[:train_file], val_file: @config[:val_file])

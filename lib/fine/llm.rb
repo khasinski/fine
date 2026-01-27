@@ -122,8 +122,19 @@ module Fine
       # Load model
       @model = Models::CausalLM.from_pretrained(@model_id)
 
-      # Freeze layers if configured
-      if @config.freeze_layers && @config.freeze_layers > 0
+      # Apply LoRA if configured
+      if @config.use_lora
+        LoRA.apply(
+          @model,
+          rank: @config.lora_rank,
+          alpha: @config.lora_alpha,
+          dropout: @config.lora_dropout,
+          target_modules: @config.lora_target_modules
+        )
+      end
+
+      # Freeze layers if configured (only if not using LoRA)
+      if !@config.use_lora && @config.freeze_layers && @config.freeze_layers > 0
         freeze_bottom_layers(@config.freeze_layers)
       end
 
@@ -175,7 +186,19 @@ module Fine
 
       @model = Models::CausalLM.from_pretrained(@model_id)
 
-      if @config.freeze_layers && @config.freeze_layers > 0
+      # Apply LoRA if configured
+      if @config.use_lora
+        LoRA.apply(
+          @model,
+          rank: @config.lora_rank,
+          alpha: @config.lora_alpha,
+          dropout: @config.lora_dropout,
+          target_modules: @config.lora_target_modules
+        )
+      end
+
+      # Freeze layers if configured (only if not using LoRA)
+      if !@config.use_lora && @config.freeze_layers && @config.freeze_layers > 0
         freeze_bottom_layers(@config.freeze_layers)
       end
 
@@ -346,8 +369,19 @@ module Fine
     #   @return [Integer] Number of bottom layers to freeze (default: 0)
     # @!attribute pad_token_id
     #   @return [Integer, nil] Padding token ID (auto-detected if nil)
+    # @!attribute use_lora
+    #   @return [Boolean] Whether to use LoRA for parameter-efficient fine-tuning (default: false)
+    # @!attribute lora_rank
+    #   @return [Integer] LoRA rank - lower = fewer params (default: 8)
+    # @!attribute lora_alpha
+    #   @return [Integer] LoRA alpha scaling factor (default: 16)
+    # @!attribute lora_dropout
+    #   @return [Float] LoRA dropout probability (default: 0.0)
+    # @!attribute lora_target_modules
+    #   @return [Array<String>, nil] Module names to apply LoRA to (default: attention projections)
     attr_accessor :max_length, :warmup_steps, :gradient_accumulation_steps,
-                  :max_grad_norm, :freeze_layers, :pad_token_id
+                  :max_grad_norm, :freeze_layers, :pad_token_id,
+                  :use_lora, :lora_rank, :lora_alpha, :lora_dropout, :lora_target_modules
 
     def initialize
       super
@@ -360,6 +394,13 @@ module Fine
       @max_grad_norm = DEFAULTS[:max_grad_norm]
       @freeze_layers = 0
       @pad_token_id = nil
+
+      # LoRA defaults
+      @use_lora = false
+      @lora_rank = 8
+      @lora_alpha = 16
+      @lora_dropout = 0.0
+      @lora_target_modules = nil # use LoRA defaults
     end
   end
 end
