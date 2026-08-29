@@ -42,7 +42,7 @@ Gem::Specification.new do |spec|
 
   # Web server (for `fine server` command)
   spec.add_dependency "sinatra", "~> 4.0"
-  spec.add_dependency "puma", "~> 6.0"
+  spec.add_dependency "puma", "~> 7.2"
   spec.add_dependency "rackup", "~> 2.1"
 
   # Development dependencies
